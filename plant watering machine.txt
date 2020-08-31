@@ -1,0 +1,115 @@
+#include <FirebaseESP8266.h>
+#include <FirebaseESP8266HTTPClient.h>
+#include <FirebaseFS.h>
+#include <FirebaseJson.h>
+
+#include <ESP8266WiFi.h>
+
+#define FIREBASE_HOST "https://plant-machine-ae2f0.firebaseio.com"
+#define FIREBASE_AUTH "oDvED1YUh44ui5P2GjtRTkgdGM4pOKdlQY75U4N0"
+#define WIFI_SSID "abc"
+#define WIFI_PASSWORD "12345678"
+
+FirebaseData firebaseData;
+
+const int sensor_pin = A0;
+const int relay = 16;
+
+void setup()
+{
+
+  Serial.begin(115200);
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  Serial.print("Connecting Firebase");
+
+  Firebase.reconnectWiFi(true);
+
+}
+
+void loop()
+{
+  FirebaseData firebaseData;
+  
+  float moisture_percentage;
+
+  moisture_percentage = (100.00 -((analogRead(sensor_pin)/1023.00)*100));
+  Serial.print("Soil Moisture(in percentage): ");
+  Serial.print(moisture_percentage);
+  Serial.println("%");
+  {
+    if(moisture_percentage <=10){
+      digitalWrite(relay,LOW);
+      delay(50000);
+      }
+    else if(moisture_percentage >=50){
+        digitalWrite(relay,LOW);
+      }
+  }
+/*-----------------------------------------------------------------------------------------
+SOIL SENSOR CONTROL FOR FIREBASE
+-----------------------------------------------------------------------------------------*/ 
+ 
+  if(Firebase.setFloat(firebaseData,"Soil Moisture(in percentage)", 0)){ 
+  Serial.print("Soil Moisture(in percentage)");
+  }
+  else{
+     Serial.println(firebaseData.errorReason());  
+     return; 
+    } 
+  if (Firebase.pushFloat(firebaseData, "/Plant Machine/Moisture", 0)) 
+  {
+  Serial.println(firebaseData.dataPath());
+  Serial.println(firebaseData.pushName());
+  } 
+  else
+  {
+  Serial.println(firebaseData.errorReason());
+  }
+  if(Firebase.getFloat(firebaseData, "Soil Moisture(in percentage)"))
+  {
+    Serial.print("Soil Moisture(in percentage)");
+    Serial.println(firebaseData.intData());
+
+  }else{
+    Serial.print("Error in getting status, ");
+    Serial.println(firebaseData.errorReason());
+  }
+/*-----------------------------------------------------------------------------------------
+ RELAY CONTROL FOR FIREBASE
+-----------------------------------------------------------------------------------------*/ 
+ 
+  if(Firebase.setInt(firebaseData, "relay", 1))
+  {
+ 
+     Serial.println("Set int data success");
+
+  }else{
+
+    Serial.print("Error in setInt, ");
+    Serial.println(firebaseData.errorReason());
+  }
+
+  if(Firebase.getInt(firebaseData, "relay"))
+  {
+    //Success
+    Serial.print("relay status,");
+    Serial.println(firebaseData.intData());
+
+  }else{
+    Serial.print("Error in getting status, ");
+    Serial.println(firebaseData.errorReason());
+  }
+}
